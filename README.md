@@ -1,7 +1,7 @@
 # Lifetable Constructor
 
 > **Domain:** Clinical Decision Support & Biomedical Computing  
-> **Reference Guidelines & Standards:** `Standard Clinical Formulations & ISO/IEC Quality Frameworks`
+> **Standards:** Standard Clinical Formulations & ISO/IEC Quality Frameworks
 
 <div align="center">
 
@@ -18,95 +18,163 @@
 
 ## 📖 What It Does
 
-Abridged Life Table Constructor
-Chiang abridged life table (qx, lx, dx, ex) with variance and 95% CI for ex.
-Stdlib only.
+A clinical decision support system providing:
+
+- **Abridged Life Table Constructor** (Chiang method: qx, lx, dx, ex with variance and 95% CI)
+- **Clinical Scoring Modules**: MELD-Na, QTc (Bazett), BMI Z-score, HbA1c/eAG conversion, APRI/FIB-4
+- **Enterprise Agent Framework**: Multi-worker consensus system with PHI guard and HMAC-SHA256 audit trail
+- **FastAPI REST API** with Prometheus telemetry endpoints
 
 ---
 
-## ⚙️ Key Capabilities & Algorithmic Modules
+## ⚙️ Core Clinical Functions
 
-### 🔬 Analytical Functions
+### MELD-Na Score (`calculate_meld_na`)
+Calculates Model for End-Stage Liver Disease score with sodium adjustment.
+```python
+from lifetable import calculate_meld_na
+result = calculate_meld_na(bilirubin=2.5, creatinine=1.2, inr=1.4, sodium=135)
+# Returns: {"meld_na": 18.2, "meld_base": 15.4, "severity": "low"}
+```
 
-- **`calculate_score()`**: Generic formula stub: weighted sum of numeric inputs.
-- **`assess_row()`** — calculates and validates assess_row parameters.
-- **`process_csv()`** — calculates and validates process_csv parameters.
-- **`build_parser()`** — calculates and validates build_parser parameters.
-- **`main()`** — calculates and validates main parameters.
+### QTc Interval (`calculate_qtc`)
+Corrected QT interval using Bazett's formula.
+```python
+from lifetable import calculate_qtc
+result = calculate_qtc(qt_ms=420, hr_bpm=72)
+# Returns: {"qtc_ms": 458.2, "risk": "borderline", ...}
+```
 
----
+### BMI Z-Score (`calculate_bmi_z`)
+Body Mass Index with age-adjusted Z-score (CDC/WHO reference).
+```python
+from lifetable import calculate_bmi_z
+result = calculate_bmi_z(weight_kg=70, height_cm=175, age_months=120, sex="M")
+# Returns: {"bmi": 22.86, "z_score": 1.24, "category": "normal"}
+```
 
-## 📐 Mathematical Formulation & Logic
+### HbA1c Conversion (`convert_hba1c`)
+Converts between HbA1c (%) and estimated average glucose.
+```python
+from lifetable import convert_hba1c
+result = convert_hba1c(hba1c_percent=7.0)
+# Returns: {"hba1c_percent": 7.0, "eag_mgdl": 154.2, "eag_mmol_l": 8.57}
+```
 
-```text
-  """Generic formula stub: weighted sum of numeric inputs."""
-  score = sum(vals) * (0.9 + h*0.02) + math.log1p(len(vals))
-  return calculate_score(**row)
+### APRI/FIB-4 (`calculate_apri_fib4`)
+Liver fibrosis assessment scores.
+```python
+from lifetable import calculate_apri_fib4
+result = calculate_apri_fib4(ast_u_l=80, alt_u_l=60, platelets_109=150, age_years=55)
+# Returns: {"apri": 1.33, "fib4": 3.56, "fibrosis_risk": "high"}
+```
+
+### Row Assessment (`assess_row`)
+Auto-detects input type and routes to the appropriate calculator.
+```python
+from lifetable import assess_row
+result = assess_row({"bilirubin": 3.0, "creatinine": 1.5, "inr": 1.2, "sodium": 138})
 ```
 
 ---
 
-## 💻 CLI Quickstart & Usage
+## 💻 CLI Usage
 
-### 1. Guided Interactive Mode
+### Single Calculation
 ```bash
-python cli.py
+# Using JSON input
+python -m lifetable single --json '{"bilirubin": 2.5, "creatinine": 1.2, "inr": 1.4}'
+
+# Using direct parameters
+python -m lifetable single --bili 2.5 --creat 1.2 --inr 1.4 --na 135
+
+# QTc calculation
+python -m lifetable single --qt 420 --hr 72
 ```
 
-### 2. Direct Parameterized Evaluation
+### Batch CSV Processing
 ```bash
-python cli.py --task-id <value> --target <value> --primary <value> --secondary <value>
+python -m lifetable batch --input sample.csv --output results.csv
 ```
 
-### Parameter Reference
-- `--task-id`: Specifies input measurement or parameter value.
-- `--target`: Specifies input measurement or parameter value.
-- `--primary`: Specifies input measurement or parameter value.
-- `--secondary`: Specifies input measurement or parameter value.
-- `--critical`: Specifies input measurement or parameter value.
-- `--status`: Specifies input measurement or parameter value.
-- `--input`: Specifies input measurement or parameter value.
-- `--output`: Specifies input measurement or parameter value.
+### Enterprise Supervisor CLI
+```bash
+# Run audit evaluation
+python cli.py audit --task-id TASK-001 --primary 28.5 --secondary 14.2
 
-### Input Data Schema
+# Batch processing
+python cli.py batch -i input.csv -o output.csv
 
-| Field | Description | Requirement |
-|:------|:------------|:------------|
-| `id` | Parameter / observation metric | Required |
-| `value` | Parameter / observation metric | Required |
-| `qty` | Parameter / observation metric | Required |
+# Verify audit trail
+python cli.py verify-audit
+
+# Launch API server
+python cli.py serve --host 127.0.0.1 --port 8000
+```
 
 ---
 
-## 🛡️ Security & Enterprise Architecture
+## 🛡️ Security Architecture
 
-* **Zero-PHI Outbound Interceptor:** Active AST and regex inspection blocking SSNs, MRNs, phone numbers, and patient identifiers.
-* **Tamper-Evident HMAC-SHA256 Audit Trail:** Chained, cryptographically signed logs for every evaluation and state transition.
-* **Air-Gapped LLM Reasoning Adapter:** Agnostic integration for local Ollama instances (`llama3`, `mistral`), Claude 3.5 Sonnet, GPT-4o, and deterministic test mocks.
-* **Active Learning Bayesian Calibration:** Dynamic tracker updating worker reliability weights and monitoring Brier calibration drift.
-* **FastAPI & Prometheus Telemetry:** Exposes OpenAPI 3.1 REST endpoints and operational Prometheus metrics (`/metrics`).
+- **Zero-PHI Outbound Interceptor:** AST and regex inspection blocking SSNs, MRNs, phone numbers, and patient identifiers
+- **Tamper-Evident HMAC-SHA256 Audit Trail:** Chained, cryptographically signed logs for every evaluation
+- **Path Traversal Protection:** Input/output path validation prevents directory traversal attacks
+- **Secure Defaults:** Audit key must be set via `AUDIT_SECRET_KEY` environment variable in production
+
+### Environment Variables
+| Variable | Description | Required |
+|:---------|:------------|:---------|
+| `AUDIT_SECRET_KEY` | HMAC-SHA256 key for audit trail signing | Recommended |
 
 ---
 
-## 🧪 Testing & Verification
+## 🧪 Testing
 
-Run the automated test suite:
-
+Run the full test suite:
 ```bash
 pytest -v
 ```
 
-Execute high-throughput batch simulation benchmarks:
-
+Run with coverage:
 ```bash
-python simulator.py --tasks 1000 --concurrency 8
+pytest -v --cov=. --cov-report=term-missing
 ```
 
 ---
 
-## 🐳 Container Deployment
+## 🐳 Docker Deployment
 
 ```bash
 docker build -t lifetable-constructor .
-docker run -p 8000:8000 lifetable-constructor
+docker run -p 8000:8000 -e AUDIT_SECRET_KEY=your-secret-key lifetable-constructor
 ```
+
+---
+
+## 📁 Project Structure
+
+```
+lifetable-constructor/
+├── lifetable.py          # Core clinical calculation functions
+├── cli.py                # Enterprise CLI with supervisor framework
+├── agents/               # Multi-agent consensus system
+│   ├── base.py           # PHI guard, audit trail, security
+│   ├── models.py         # Pydantic data models
+│   ├── supervisor.py     # Orchestrator for worker agents
+│   ├── workers.py        # Specialized evaluation workers
+│   ├── api.py            # FastAPI REST endpoints
+│   ├── metrics.py        # Prometheus metrics collector
+│   ├── llm_factory.py    # LLM provider abstraction
+│   ├── learning.py       # Bayesian calibration engine
+│   └── streamer.py       # WebSocket telemetry broadcaster
+├── tests/                # Test suite
+├── web/                  # Operations console (HTML)
+├── Dockerfile            # Container definition
+└── docker-compose.yml    # Multi-service orchestration
+```
+
+---
+
+## 📄 License
+
+MIT License - see [LICENSE](LICENSE) for details.

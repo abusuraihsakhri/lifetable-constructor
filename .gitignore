@@ -32,6 +32,11 @@ results.csv
 output.csv
 *.log
 
+# Local credentials
+.env
+.env.*
+!.env.example
+
 # Build
 build/
 dist/

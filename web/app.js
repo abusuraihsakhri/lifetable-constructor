@@ -72,7 +72,9 @@ export function constructTable(intervals, radix = 100000) {
     const ax = interval.ax === undefined || interval.ax === null || String(interval.ax).trim() === ''
       ? width / 2 : finite(interval.ax, `Row ${i + 1}: ax`);
     if (ax < 0 || ax > width) throw new Error(`Row ${i + 1}: ax must be between 0 and ${width}`);
-    return { age, width, mx, ax, qx: Math.min(1, width * mx / (1 + (width - ax) * mx)) };
+    const denominator = mx === 0 ? null : 1 / mx + width - ax;
+    const qx = mx === 0 ? 0 : denominator === 0 ? 1 : Math.min(1, width / denominator);
+    return { age, width, mx, ax, qx };
   });
   let survivors = radix;
   for (const r of table) {
@@ -80,6 +82,7 @@ export function constructTable(intervals, radix = 100000) {
     r.dx = survivors * r.qx;
     const next = Math.max(0, survivors - r.dx);
     r.Lx = r.width === null ? survivors / r.mx : r.width * next + r.ax * r.dx;
+    if (!Number.isFinite(r.Lx)) throw new Error('Inputs produce non-finite person-years');
     survivors = next;
   }
   let T = 0;

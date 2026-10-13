@@ -7,6 +7,7 @@ from pydantic import BaseModel
 from .base import AuditLogger, PHIGuard
 from .models import SystemTaskPayload, ConsensusDossier
 from .supervisor import SystemSupervisor
+from life_table import construct_life_table
 
 supervisor = SystemSupervisor(model_provider="mock")
 
@@ -19,6 +20,22 @@ app = FastAPI(
 
 class ChatRequest(BaseModel):
     query: str
+
+
+class LifeTableRequest(BaseModel):
+    intervals: List[Dict[str, Any]]
+    radix: float = 100_000
+
+
+@app.post("/api/lifetable")
+def api_lifetable(request: LifeTableRequest):
+    """Compute a period life table without altering the legacy audit service."""
+    try:
+        table = construct_life_table(request.intervals, radix=request.radix)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    return {"table": table, "age_at_entry": table[0]["age"], "life_expectancy": table[0]["ex"]}
+
 
 
 @app.get("/health")

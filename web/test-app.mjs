@@ -29,3 +29,9 @@ test('reject malformed and invalid inputs', () => {
 test('CSV reader accepts BOM, CRLF and quoted columns', () => {
   assert.deepEqual(parseCSV('\ufeffage,mx\r\n"0","0.02"\r\n"5","0.02"\r\n'), [{age:'0',mx:'0.02'}, {age:'5',mx:'0.02'}]);
 });
+
+test('extreme rates do not produce NaN', () => {
+  const t = constructTable([{age:0,mx:1e308},{age:1,mx:0.1}]);
+  assert.equal(t[0].qx, 1);
+  assert.equal(t[0].ex, 0.5);
+});

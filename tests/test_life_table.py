@@ -54,3 +54,9 @@ def test_csv_round_trip(tmp_path):
     assert len(actual) == 2
     assert float(actual[0]["ex"]) == pytest.approx(50.0)
     assert actual[1]["width"] == ""
+
+
+def test_extreme_rates_do_not_produce_nan():
+    rows = construct_life_table([{"age": 0, "mx": 1e308}, {"age": 1, "mx": 0.1}])
+    assert rows[0]["qx"] == 1.0
+    assert rows[0]["ex"] == pytest.approx(0.5)

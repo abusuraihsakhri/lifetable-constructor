@@ -71,7 +71,8 @@ def construct_life_table(intervals: list[dict], *, radix: float = 100_000) -> li
             ax = width / 2 if raw_ax in (None, "") else _number(raw_ax, f"row {i + 1} ax")
             if not 0 <= ax <= width:
                 raise ValueError(f"row {i + 1} ax must lie between 0 and {width:g}")
-            qx = min(1.0, width * mx / (1.0 + (width - ax) * mx))
+            denominator = (1 / mx + width - ax) if mx else None
+            qx = min(1.0, width / denominator) if denominator else (1.0 if mx else 0.0)
         table.append({"age": age, "width": width, "mx": mx, "ax": ax, "qx": qx})
         previous_age = age
 
@@ -84,6 +85,8 @@ def construct_life_table(intervals: list[dict], *, radix: float = 100_000) -> li
             survivors / row["mx"] if row["width"] is None
             else row["width"] * next_survivors + row["ax"] * row["dx"]
         )
+        if not math.isfinite(row["Lx"]):
+            raise ValueError("inputs produce non-finite person-years")
         survivors = next_survivors
 
     remaining_years = 0.0
